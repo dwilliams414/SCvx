@@ -18,14 +18,18 @@ lm = LinearizedModel(f_nl, dfdx, dfdu, n_x, n_u);
 xk = x0;
 uk = 1e-2*ones(3, 1);
 
+tic;
 [A_k, B_k, c_k, xkp1_ref] = integrate_linearized(xk, uk, 0, 0.2, lm);
+toc;
 
 % Compare with Nonlinear
 xkp1 = A_k*xk+B_k*uk+c_k;
 
 % Validate with Small perturbation
 x0_new = xk + 1e-3*randn(6, 1);
+tic;
 [t_new, x_new] = IntegrateCR3BP(x0_new, [0 0.2], mass_parameter);
+toc;
 xkp1_new = x_new(end, :)';
 
 error = A_k*x0_new+B_k*uk+c_k - xkp1_new
