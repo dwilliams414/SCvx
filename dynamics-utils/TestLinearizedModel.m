@@ -19,7 +19,7 @@ xk = x0;
 uk = 1e-2*ones(3, 1);
 
 tic;
-[A_k, B_k, c_k, xkp1_ref] = integrate_linearized(xk, uk, 0, 0.2, lm);
+[A_k, B_k, c_k, xkp1_ref] = integrate_linearized_slow(xk, uk, 0, 0.2, lm);
 toc;
 
 % Compare with Nonlinear
