@@ -1,6 +1,6 @@
 function [A_k, B_k, c_k, xkp1_ref] = integrate_linearized(xk, uk, tk, tkp1, lm, opts)
 %INTEGRATE_LINEARIZED: Integrate linearized model to obtain discrete
-%matrices
+%matrices and obtain discretization matrices, using Zero Order Hold
 arguments
     xk (:, 1) double
     uk (:, 1) double
