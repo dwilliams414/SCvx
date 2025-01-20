@@ -10,12 +10,12 @@ arguments
 end
     ode_fun = @(t, Y) cr3bp_discretized_dynamics(t, Y, uk, mass_parameter);
 
-    odeopts = odeset('AbsTol', 1e-13, 'RelTol', 1e-13);
+    odeopts = odeset('AbsTol', 1e-12, 'RelTol', 1e-12);
 
     stm0 = eye(6);
     Y0 = [xk; stm0(:); zeros(6*3+6, 1)];
 
-    [t, x] = ode45(ode_fun, [tk tkp1], Y0, odeopts);
+    [t, x] = ode89(ode_fun, [tk tkp1], Y0, odeopts);
 
     xkp1_ref = x(end, 1:6)';
     A_k = reshape(x(end, 7:42), 6, 6);
