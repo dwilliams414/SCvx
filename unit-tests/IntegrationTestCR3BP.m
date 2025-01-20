@@ -9,9 +9,9 @@ mass_parameter = cr3bp_sys.mu;
 orb_dat = load("L2SHalo_FullStandardized.mat");
 i_orb = 15;
 x0 = orb_dat.x0_array(:, i_orb);
-IP = orb_dat.IP_vals(i_orb)/3;
+IP = orb_dat.IP_vals(i_orb)*0.8;
 %% Specify Functions - CR3BP with No Control
-uk = 1e-2*randn(3, 1);
+uk = 1e-3*randn(3, 1);
 f_nl = @(t, x, u) controlled_cr3bp(t, x, mass_parameter, @(t, x) uk);
 dfdx = @(t, x, u) A_cr3bp(t, x, mass_parameter);
 dfdu = @(t, x, u) [zeros(3); eye(3)];
@@ -59,7 +59,7 @@ final_state_diff_error_nl = final_state_diff_actual-final_state_diff_pred
 
 final_state_error_nl = xnl(end, :)'-(Akmex*x0_pert+Bkmex*uk_pert+ckmex)
 
-%% Validate against STM
+%% Validate against STM - if control is set to zero
 phi0 = eye(6);
 [t, x] = IntegrateCR3BP([x0; phi0(:)], [0 IP], mass_parameter);
 stm = state2phimats(x(end, :)');

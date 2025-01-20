@@ -4,7 +4,7 @@ cr3bp_sys = load("em_constants.mat");
 mass_parameter = cr3bp_sys.mu;
 orb_dat = load("L1L2Cycler_FullStandardized.mat");
 x0 = orb_dat.x0_array(:, 301);
-addpath("../dynamics-utils-cr3bp-mex/")
+addpath("../../dynamics-utils-cr3bp-mex/")
 
 %% Specify Functions - CR3BP with No Control
 uk = 1e-2*ones(3, 1);
