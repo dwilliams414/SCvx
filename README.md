@@ -1,2 +1,2 @@
-# SCvx
-Implementation of convex programming paradigm and useful functions
+# SCvx(*)
+MATLAB implementations of the $\texttt{SCvx}$ and $\texttt{SCvx*}$ algorithms for Sequential Convnex Programming, leveraging YALMIP and MOSEK.  Maybe one day I'll make this a public repo...
