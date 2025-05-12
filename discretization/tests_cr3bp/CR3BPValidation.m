@@ -9,7 +9,7 @@ dfdx = @(x, u, p) A_cr3bp(0, x, p);
 dfdu = @(x, u, p) [zeros(3); eye(3)];
 dfdp = @(x, u, p) f_mu_cr3bp(x, p);
 
-tspan = linspace(0, 2, 101);
+tspan = linspace(0, 3, 101);
 
 dm = LinearizedDynamics(f_nl, dfdx, dfdu, dfdp, 6, 3, 1);
 
@@ -17,15 +17,18 @@ u = 0.0001*ones(3, 1);
 [Ak, Bk, Ck, dk, xkp1] = dm.integrate_discretized(x0, ...
     @(x, p) 0.0001*ones(3, 1), mu, tspan);
 
-% Validation - no parameter yet, since I'm lazy
-upert = u + 1e-3*randn(3, 1);
-xpert = x0 + 1e-3*randn(6, 1);
-mupert = mu+1e-4*randn(1);
-
-xf_lin = Ak*xpert+Bk*upert+Ck*mupert+dk;
-
-[~, ~, ~, ~, xf_nl] = dm.integrate_discretized(xpert, @(x, p) upert, mupert, ...
-    tspan);
-
-assert(all(abs(xf_nl-xf_lin) < 1e-5))
+%% Validation
+error_bound = 1e-3;
+for k = 1:100
+    upert = u + error_bound*randn(3, 1);
+    xpert = x0 + error_bound*randn(6, 1);
+    mupert = mu+error_bound*randn(1);
+    
+    xf_lin = Ak*xpert+Bk*upert+Ck*mupert+dk;
+    
+    [~, ~, ~, ~, xf_nl] = dm.integrate_discretized(xpert, @(x, p) upert, mupert, ...
+        tspan);
+    xf_lin-xf_nl
+    assert(all(abs(xf_nl-xf_lin) < error_bound))
+end
 rmpath("../");
