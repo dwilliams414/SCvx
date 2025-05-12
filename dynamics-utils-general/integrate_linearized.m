@@ -25,6 +25,6 @@ end
     A_k = reshape(Y(end, lm.stm_indices), [lm.n_x, lm.n_x]);
     B_k = A_k*reshape(Y(end, lm.B_indices), [lm.n_x lm.n_u]);
     c_k = A_k*reshape(Y(end, lm.c_indices), lm.n_x, 1);
-    xkp1_ref = Y(end, 1:6)';
+    xkp1_ref = Y(end, 1:lm.n_x)';
 end
 
