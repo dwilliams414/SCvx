@@ -49,9 +49,6 @@ classdef CR3BPPosContinuityMinFuel < ConvexSubproblem
             obj.state_indices = 1:obj.num_nodes*obj.n_x;
             obj.ctrl_indices = obj.state_indices(end)+1:...
                 obj.state_indices(end)+obj.n_u*(obj.num_nodes-1);
-
-            obj.len_z = obj.ctrl_indices(end);
-
         end
 
         function g_lin = g_linearized(obj, z, z_ref)
@@ -62,27 +59,48 @@ classdef CR3BPPosContinuityMinFuel < ConvexSubproblem
             end
             A = zeros(obj.n_x*(obj.num_nodes-1));
             B = zeros(size(A, 1), obj.n_u*(obj.num_nodes-1));
-            d_vec = zeros(obj.n_x*(obj.num_nodes-1));
+            d_vec = zeros(obj.n_x*(obj.num_nodes-1), 1);
             Xkp1 = z(obj.state_indices(7:end));
             Xk = z(obj.state_indices(1:end-6));
+            Uk = z(obj.ctrl_indices);
 
             for k = 1:obj.num_nodes-1
                 x0k = z_ref(obj.state_indices(obj.n_x*(k-1)+1:obj.n_x*k));
                 uk = z_ref(obj.ctrl_indices(obj.n_u*(k-1)+1:obj.n_u*k));
                 tspank = obj.nd_times(k:k+1);
 
-                [xf, stmf] = obj.stm_propagator([x0k+[zeros(3);eye(3)]*uk], ...
-                    )
+                [xkp1, stmf] = obj.stm_propagator(...
+                    [x0k+[zeros(3);eye(3)]*uk], tspank);
+
+                Ak = stmf;
+                Bk = Ak*[zeros(3); eye(3)];
+                
+                A(obj.n_x*(k-1)+1:obj.n_x*k, obj.n_x*(k-1)+1:obj.n_x*k)=Ak;
+                B(obj.n_x*(k-1)+1:obj.n_x*k, obj.n_u*(k-1)+1:obj.n_u*k)=Bk;
+
+                d_vec(obj.n_x*(k-1)+1:obj.n_x*k) = xkp1-Ak*x0k-Bk*uk;
+    
             end
-
-            d_vec = z_ref(obj.)
-
-            g_lin = Xkp1 - A*Xk
-            
+            g_lin = Xkp1-(A*Xk)-B*Uk-d_vec;
         end
 
         function g_nl = g_nonlinear(obj, z)
-            g_nl = [];
+            g_nl = zeros(obj.state_indices(end)-6, 1);
+            Xkp1 = z(obj.state_indices(7:end));
+            for k = 1:obj.num_nodes-1
+                current_state_indices = obj.n_x*(k-1)+1:obj.n_x*k;
+                current_ctrl_indices = obj.n_u*(k-1)+1:obj.n_u*k;
+
+                xk = z(obj.state_indices(current_state_indices));
+                uk = z(obj.ctrl_indices(current_ctrl_indices));
+                tspank = obj.nd_times(k:k+1);
+
+                [xf, ~] = obj.stm_propagator([xk+[zeros(3);eye(3)]*uk], ...
+                    tspank);
+
+                g_nl(current_state_indices) = Xkp1(current_state_indices)-...
+                    xf;
+            end
         end
 
         function g_aff = g_affine(obj, z)
@@ -91,6 +109,13 @@ classdef CR3BPPosContinuityMinFuel < ConvexSubproblem
 
         function h_convex = h_cvx(obj, z)
             h_convex = [];
+            for k = 1:obj.num_nodes
+                state_current = ...
+                    z(obj.state_indices(obj.n_x*(k-1)+1:obj.n_x*k));
+
+                ref_state = obj.x_ref_init(:, k);
+                h_convex = [h_convex; norm(state_current-ref_state, 2)-0.01];
+            end
         end
 
         function h_nl = h_nonlinear(obj, z)
@@ -102,7 +127,20 @@ classdef CR3BPPosContinuityMinFuel < ConvexSubproblem
         end
 
         function f0 = cost_fcn(obj, z)
-            f0 = 1;
+            u_all = reshape(z(obj.ctrl_indices), 3, []);
+            f0 = norm(u_all(:, 1));
+            for k = 2:obj.num_nodes-1
+                f0 = f0 + norm(u_all(:, k));
+            end
+        end
+
+        function z_sdp = build_sdpvar(obj, z_ref)
+            arguments
+                obj (1, 1) CR3BPPosContinuityMinFuel
+                z_ref (:, 1) double
+            end
+            len_z = obj.n_x*obj.num_nodes+obj.n_u*(obj.num_nodes-1);
+            z_sdp = sdpvar(len_z, 1);            
         end
 
     end

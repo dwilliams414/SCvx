@@ -3,9 +3,6 @@ classdef (Abstract) ConvexSubproblem
     %convex subproblem to solve at each iteration of the SCvx(*) algorithm.
 
     properties (SetAccess = public)
-        % Length of the optimization variable vector.  Note taht this value
-        % does not include any slack variables required for SCvx(*)
-        len_z;
     end
 
     methods (Abstract)
@@ -75,6 +72,17 @@ classdef (Abstract) ConvexSubproblem
         %   Outputs:
         %       f0_z:   Cost function value (1, 1)
         f0 = cost_fcn(obj, z);
+
+        % build_sdpvar: Build the YALMIP SDPVAR that represents the desired
+        % subproblem.  We do this here because we want to be able to
+        % incorporate matrices and LinearMatrixInequality (LMI) constraints
+        %   Inputs:
+        %       obj:        Instance of ConvexSubproblem
+        %       z_ref:      Reference optimization variable values (if
+        %                   needed)
+        %   Outputs:
+        %       z_sdp:          (Vector) SDPVAR
+        z_sdp = build_sdpvar(obj, z_ref);
     end
 
     methods

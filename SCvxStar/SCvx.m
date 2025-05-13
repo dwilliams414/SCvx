@@ -7,7 +7,7 @@ classdef SCvx
     properties (SetAccess = protected)
         % Convex subproblem to solve at each iteration of algorithm.
         % Instance of the ConvexSubproblem object
-        cvx_subproblem
+        cvx_subproblem (1, 1) % ConvexSubproblem % For coding rn, remove
 
         % Equality constraint Lagrange multipliers for augmented lagrangian
         lambda (:, 1) double
@@ -53,7 +53,8 @@ classdef SCvx
         % Initial trust region radius
         init_tr_radius = 0.01;
 
-
+        % Maximum number of iterations
+        max_iter = 100;
     end
     
     methods
@@ -76,10 +77,11 @@ classdef SCvx
 
             obj.cvx_subproblem = problem;
             obj.tol_feas = opts.tol_feas;
-            opts.tol_opt = tol_opt;
+            opts.tol_opt = opts.tol_opt;
+            
         end
         
-        function outputArg = solve(obj, z_ref)
+        function z_opt = solve(obj, z_ref)
             %solve: Solve the optimization problem using the SCvx*
             %framework
             %   Inputs:
@@ -87,8 +89,71 @@ classdef SCvx
             %       z_ref:  Reference optimization variables for first
             %               iteration
             %   Outputs:
-            %       (TBD): Some kind of solution structure
-            
+            %       z_opt: Optimized value at final iteration
+            fprintf("Time to implement this!!");
+
+            % Initial weight setup
+            obj.w_current = obj.w_init;
+
+            % Stopping Conditions
+            feasibility_metric = inf;
+            deltaJ = inf;
+            num_iter = 0;
+
+            while (feasibility_metric > obj.tol_feas...
+                    || deltaJ > obj.tol_opt) && num_iter < obj.max_iter
+
+                % Construct SDP variables
+                z_sdp = obj.cvx_subproblem.build_sdpvar(z_ref);
+
+                % Build the LHS of the Equality Constraints
+                g_lin = obj.cvx_subproblem.g_linearized(z_sdp, z_ref);
+                g_affine = obj.cvx_subproblem.g_affine(z_sdp);
+
+                % Build the LHS of the Inequality Constraints
+                h_lin = obj.cvx_subproblem.h_linear(z_sdp, z_ref);
+                h_cvx = obj.cvx_subproblem.h_cvx(z_sdp);
+
+                % Construct overall constraint vector for convex iteration
+                xi = sdpvar(length(g_lin), 1);
+                zeta = sdpvar(length(h_lin), 1);
+
+                constraints = [g_lin == xi; ...
+                    h_lin <= zeta; zeta >= 0; g_affine == 0; h_cvx <= 0];
+
+                % Build Augmented Lagrangian
+                if (num_iter == 0)
+                    obj.lambda = zeros(length(g_lin)+length(g_affine), 1);
+                    obj.lambda_ineq = zeros(length(h_lin)+length(h_cvx), 1);
+                end
+                L = obj.build_augmented_lagrangian(z_sdp, ...
+                    [g_lin; g_affine], [h_lin; h_cvx]);
+
+                % Solve Iteration
+                sol = optimize(constraints, L);
+
+                fprintf("Iteration Done!\n");
+                num_iter = num_iter + 1;
+            end
+        end
+
+        function aug_lagrangian = build_augmented_lagrangian(obj, z,...
+                g, h)
+            arguments (Input)
+                obj (1, 1) SCvx
+                z (:, 1)
+                g (:, 1)
+                h (:, 1)
+            end
+            arguments (Output)
+                aug_lagrangian (1, 1)
+            end
+            f0 = obj.cvx_subproblem.cost_fcn(z);
+
+            h_plus = max(0, h);
+            aug_lagrangian = f0 + obj.lambda'*g + ...
+                obj.lambda_ineq'*h + ...
+                obj.w_current/2 * (g'*g + h_plus'*h_plus);
         end
     end
 end
