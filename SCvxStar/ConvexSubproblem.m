@@ -1,6 +1,12 @@
 classdef (Abstract) ConvexSubproblem
     %CONVEXSUBPROBLEM: Specifies necessary components for constructing the
-    %convex subproblem to solve at each iteration of the SCvx(*) algorith,
+    %convex subproblem to solve at each iteration of the SCvx(*) algorithm.
+
+    properties (SetAccess = public)
+        % Length of the optimization variable vector.  Note taht this value
+        % does not include any slack variables required for SCvx(*)
+        len_z;
+    end
 
     methods (Abstract)
         % g_linearized: Evaluate linearized equality constraints for a
@@ -12,7 +18,7 @@ classdef (Abstract) ConvexSubproblem
         %   Outputs:
         %       Evaluate g_tilde(z) for SCvx* framework for the
         %       linearization specified by z_ref
-        g_lin = g_linearized(z, z_ref);
+        g_lin = g_linearized(obj, z, z_ref);
 
         % g_nonlinear:  Evaluate the nonlinear equality constraints for a
         % specified optimization variable vector, z.  Used for evaluating,
@@ -21,7 +27,7 @@ classdef (Abstract) ConvexSubproblem
         %       z:      Optimization variable vector (n x 1)
         %   Outputs:
         %       g_nl(z)
-        g_nl = g_nonlinear(z);
+        g_nl = g_nonlinear(obj, z);
 
         % g_affine:  Evaluate the affine equality constraints for a
         % specified optimization variable vector, z.  Used for evaluating,
@@ -30,7 +36,7 @@ classdef (Abstract) ConvexSubproblem
         %       z:      Optimization variable vector (n x 1)
         %   Outputs:
         %       g_nl(z)
-        g_aff = g_affine(z);
+        g_aff = g_affine(obj, z);
 
         % h_linear: Evaluate the linearized inequality constraints about a
         % reference set of optimization variables, z_ref
@@ -41,7 +47,7 @@ classdef (Abstract) ConvexSubproblem
         %   Outputs:
         %       Evaluate h_tilde(z) for SCvx* framework for the
         %       linearization specified by z_ref
-        h_lin = h_linear(z, z_ref);
+        h_lin = h_linear(obj, z, z_ref);
 
 
         % h_nonlinear:  Evaluate the nonlinear inequality constraints for a
@@ -51,7 +57,7 @@ classdef (Abstract) ConvexSubproblem
         %       z:      Optimization variable vector (n x 1)
         %   Outputs:
         %       h_nonlinear(z)
-        h_nl = h_nonlinear(z);
+        h_nl = h_nonlinear(obj, z);
 
         % h_cvx:  Evaluate the nonlinear inequality constraints for a
         % specified optimization variable vector, z.  Used for evaluating,
@@ -60,7 +66,15 @@ classdef (Abstract) ConvexSubproblem
         %       z:      Optimization variable vector (n x 1)
         %   Outputs:
         %       h_cvx(z)
-        h_convex = h_cvx(z);
+        h_convex = h_cvx(obj, z);
+
+        % cost_fcn: Evaluate the cost function to minimize, f_0(z) in the
+        % SCvx* notation.
+        %   Inputs:
+        %       z:      Optimization variable vector (n x 1)
+        %   Outputs:
+        %       f0_z:   Cost function value (1, 1)
+        f0 = cost_fcn(obj, z);
     end
 
     methods
