@@ -114,7 +114,7 @@ classdef CR3BPPosContinuityMinFuel < ConvexSubproblem
                     z(obj.state_indices(obj.n_x*(k-1)+1:obj.n_x*k));
 
                 ref_state = obj.x_ref_init(:, k);
-                h_convex = [h_convex; norm(state_current-ref_state, 2)-0.01];
+                h_convex = [h_convex; norm(state_current(1:3)-ref_state(1:3), 2)-0.05];
             end
         end
 
