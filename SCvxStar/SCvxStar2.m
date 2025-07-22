@@ -178,7 +178,7 @@ classdef SCvxStar2
                 
                 % Evaluate Feasibility
                 feasVector = [gCurrent; max(0, hCurrent)];
-                feasMetric = norm(feasVector);
+                feasMetric = norm(feasVector, inf);
 
                 % Evaluate step improvement
                 if deltaLCurrent == 0
@@ -190,7 +190,7 @@ classdef SCvxStar2
                 fprintf("Step Results:\n");
                 fprintf("Iteration Optimality (deltaJ): %.4g\n", deltaJCurrent);
                 fprintf("Iteration Feasibility: %.4g\n", feasMetric);
-                fprintf("Iteration deltaL: %.4\n", deltaLCurrent);
+                fprintf("Iteration deltaL: %.4g\n", deltaLCurrent);
                 fprintf("Current Trust Region: %.4g\n", currentTR);
                 fprintf("Current rho: %.4g\n", currentRho);
                 fprintf("Current w: %.4g\n", currentW);
