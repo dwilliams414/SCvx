@@ -163,10 +163,16 @@ classdef SCvxStar2
                 % Cost Function Deltas
                 deltaJCurrent = Jprev-Jcurrent;
                 deltaLCurrent = Jprev-value(L);
+                optMetric = deltaJCurrent; % Optimality metric
+
+                if (deltaLCurrent < 0)
+                    warning("This shouldn't be negative...attempt to " + ...
+                        "diagnose!");
+                end
                 
                 % Evaluate Feasibility
                 feasVector = [gCurrent; max(0, hCurrent)];
-                currentFeas = norm(feasVector);
+                feasMetric = norm(feasVector);
 
                 % Evaluate step improvement
                 if deltaLCurrent == 0
@@ -175,13 +181,23 @@ classdef SCvxStar2
                     currentRho = deltaJCurrent/deltaLCurrent;
                 end
 
-                % Assess Step Improvement
+                fprintf("Step Results:\n");
+                fprintf("Iteration Optimality (deltaJ): %.4g\n", deltaJCurrent);
+                fprintf("Iteration Feasibility: %.4g", feasMetric);
+                fprintf("Iteration deltaL: %.4\n", deltaLCurrent);
+                fprintf("Current Trust Region: %.4g", currentTR);
+                fprintf("Current rho: %.4g\n", currentRho);
+                fprintf("Current w: %.4g\n", currentW);
+                fprintf("Current Optimality Criteria to Update (delta): %.4g\n", delta);
+
+                % Assess Step Improvement - keep results
                 if currentRho >= obj.rho0
                     zRef = value(zSDP); % Update the reference...good step
 
                     % Assess if we should update weights - we have improved
                     % optimality enough
                     if abs(deltaJCurrent) < delta
+                        fprintf("Updated Multipliers!\n");
                         % Update Multipliers
                         currentLambda = currentLambda + currentW*gCurrent;
                         currentMu = max(0, currentMu + currentW*hCurrent);
@@ -194,8 +210,10 @@ classdef SCvxStar2
 
                 % Update Trust Region
                 if currentRho < obj.rho1
+                    fprintf("Reduced Trust Region");
                     currentTR = max(currentTR/obj.alpha1, obj.rMin);
                 elseif currentRho > obj.rho2
+                    fprintf("Expanded Trust Region");
                     currentTR = min(obj.alpha2*currentTR, obj.rMax);
                 end
             end
