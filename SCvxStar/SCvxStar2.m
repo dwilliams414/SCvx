@@ -5,7 +5,7 @@ classdef SCvxStar2
     properties
 
         % ConvexSubproblem to solve at each iteration
-        cvxSubproblem (1, 1) ConvexSubproblem
+        cvxSubproblem (1, 1)
 
         % Maximimum trust region radius (rMax)
         rMax (1, 1) double = 0.1;
