@@ -8,7 +8,7 @@ classdef SCvxStar2
         cvxSubproblem (1, 1)
 
         % Maximimum trust region radius (rMax)
-        rMax (1, 1) double = 0.1;
+        rMax (1, 1) double = 0.03;
 
         % Minimum trust region radius (rMin)
         rMin (1, 1) double = 1e-7;
@@ -93,15 +93,21 @@ classdef SCvxStar2
             zRef = zInit;
             currentW = obj.wInit;
             currentTR = obj.initTRRadius;
-            currentLambda = 0;
-            currentMu = 0;
 
             optMetric = inf;
             feasMetric = inf;
             delta = inf; % delta from SCVx*
 
             numIter = 0;
-            while optMetric > obj.tolOpt && feasMetric > obj.tolFeas && ...
+
+            % Get initial g_lin, h_lin to size lagrange multipliers
+            glinInit = obj.cvxSubproblem.g_linearized(zRef, zRef);
+            hlinInit = obj.cvxSubproblem.h_linear(zRef, zRef);
+
+            currentLambda = zeros(size(glinInit));
+            currentMu = zeros(size(hlinInit));
+
+            while (optMetric > obj.tolOpt || feasMetric > obj.tolFeas) && ...
                     numIter < obj.maxIter
 
                 numIter = numIter + 1;
@@ -132,7 +138,7 @@ classdef SCvxStar2
                 if ~isempty(hTilde)
                     zeta = sdpvar(length(hTilde), 1);
                     constraints = [constraints; hTilde - zeta <= 0];
-                    constraints = [constraings; zeta >= 0];
+                    constraints = [constraints; zeta >= 0];
                 else
                     zeta = [];
                 end
@@ -163,7 +169,7 @@ classdef SCvxStar2
                 % Cost Function Deltas
                 deltaJCurrent = Jprev-Jcurrent;
                 deltaLCurrent = Jprev-value(L);
-                optMetric = deltaJCurrent; % Optimality metric
+                optMetric = abs(deltaJCurrent); % Optimality metric
 
                 if (deltaLCurrent < 0)
                     warning("This shouldn't be negative...attempt to " + ...
@@ -183,9 +189,9 @@ classdef SCvxStar2
 
                 fprintf("Step Results:\n");
                 fprintf("Iteration Optimality (deltaJ): %.4g\n", deltaJCurrent);
-                fprintf("Iteration Feasibility: %.4g", feasMetric);
+                fprintf("Iteration Feasibility: %.4g\n", feasMetric);
                 fprintf("Iteration deltaL: %.4\n", deltaLCurrent);
-                fprintf("Current Trust Region: %.4g", currentTR);
+                fprintf("Current Trust Region: %.4g\n", currentTR);
                 fprintf("Current rho: %.4g\n", currentRho);
                 fprintf("Current w: %.4g\n", currentW);
                 fprintf("Current Optimality Criteria to Update (delta): %.4g\n", delta);
@@ -204,16 +210,20 @@ classdef SCvxStar2
                         currentW = min(obj.beta*currentW, obj.wMax);
 
                         % Update Stationary Tolerance
-                        delta = obj.gamma * delta;
+                        if isinf(delta)
+                            delta = abs(deltaJCurrent);
+                        else
+                            delta = obj.gamma * delta;
+                        end
                     end
                 end
 
                 % Update Trust Region
                 if currentRho < obj.rho1
-                    fprintf("Reduced Trust Region");
+                    fprintf("Reduced Trust Region\n");
                     currentTR = max(currentTR/obj.alpha1, obj.rMin);
                 elseif currentRho > obj.rho2
-                    fprintf("Expanded Trust Region");
+                    fprintf("Expanded Trust Region\n");
                     currentTR = min(obj.alpha2*currentTR, obj.rMax);
                 end
             end
@@ -240,7 +250,7 @@ classdef SCvxStar2
             %   Outputs:    Augmented lagrangian function
             f0 = obj.cvxSubproblem.cost_fcn(zSDP);
 
-            L = f0 + dot(lambda, xi) + w/2 * dot(xi, xi) + mu * zeta + ...
+            L = f0 + dot(lambda, xi) + w/2 * dot(xi, xi) + dot(mu, zeta) + ...
                 w/2 * dot(zeta, zeta); % dot(zeta, zeta) because we constraint zeta >= 0!
         end
 
