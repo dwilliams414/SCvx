@@ -123,7 +123,7 @@ classdef SCvxStar2
                 constraints = [gAffine == 0; hConvex <= 0];
 
                 if ~isempty(gTilde)
-                    xi = sdpvar(length(gTilde, 1));
+                    xi = sdpvar(length(gTilde), 1);
                     constraints = [constraints; gTilde - xi == 0];
                 else
                     xi = [];
