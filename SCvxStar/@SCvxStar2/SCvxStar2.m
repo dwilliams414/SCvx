@@ -151,6 +151,12 @@ classdef SCvxStar2
                     currentLambda, currentMu);
 
                 opts = sdpsettings('solver', 'mosek');
+                opts.mosek.MSK_DPAR_BASIS_TOL_X = 1e-9;
+                opts.mosek.MSK_DPAR_BASIS_TOL_S = 1e-9;
+                opts.mosek.MSK_DPAR_INTPNT_CO_TOL_DFEAS = 1e-11;
+                opts.mosek.MSK_DPAR_INTPNT_CO_TOL_PFEAS = 1e-11;
+                opts.mosek.MSK_DPAR_INTPNT_CO_TOL_REL_GAP = 1e-11;
+
                 sol = optimize(constraints, L, opts);
 
                 % Evaluate Nonlinear Constraints - Current Iteration
@@ -195,6 +201,7 @@ classdef SCvxStar2
                 fprintf("Current rho: %.4g\n", currentRho);
                 fprintf("Current w: %.4g\n", currentW);
                 fprintf("Current Optimality Criteria to Update (delta): %.4g\n", delta);
+                fprintf("YALMIP Time: %.4g\n", sol.yalmiptime)
 
                 % Assess Step Improvement - keep results
                 if currentRho >= obj.rho0
@@ -229,6 +236,8 @@ classdef SCvxStar2
             end
             zOpt = value(zSDP);
         end
+
+        zOpt = solveFast(obj, zInit);
 
         function L = augmentedLagrangianSDP(obj, zSDP, xi, zeta, w, lambda, mu)
             % AUGMENTEDLAGRANGIANSDP: Augmented lagrangian that for which
