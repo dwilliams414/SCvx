@@ -193,7 +193,7 @@ classdef SCvxStar2
                     currentRho = deltaJCurrent/deltaLCurrent;
                 end
 
-                fprintf("Step Results:\n");
+                fprintf("Step Results, Iteration %d:\n", numIter);
                 fprintf("Iteration Optimality (deltaJ): %.4g\n", deltaJCurrent);
                 fprintf("Iteration Feasibility: %.4g\n", feasMetric);
                 fprintf("Iteration deltaL: %.4g\n", deltaLCurrent);
