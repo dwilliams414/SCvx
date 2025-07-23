@@ -410,7 +410,7 @@ classdef SCvxStar2
 
         % zOpt = solveFast(obj, zInit);
         
-        function L = augmentedLagrangianSDPCone(obj, zSDP, xi, zetsa, w, ...
+        function L = augmentedLagrangianSDPCone(obj, zSDP, xi, zeta, w, ...
                 lambda, mu, t1, t2)
             f0 = obj.cvxSubproblem.cost_fcn(zSDP);
             f0 = obj.cvxSubproblem.cost_fcn(zSDP);
