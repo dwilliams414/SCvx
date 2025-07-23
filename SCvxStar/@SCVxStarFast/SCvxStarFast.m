@@ -5,7 +5,7 @@ classdef SCvxStarFast
     properties
 
         % ConvexSubproblem to solve at each iteration
-        cvxSubproblem (1, 1) CVXFastSubproblem
+        cvxSubproblem (1, 1) %CVXFastSubproblem
 
         % Maximimum trust region radius (rMax)
         rMax (1, 1) double = 0.03;
@@ -65,7 +65,7 @@ classdef SCvxStarFast
             %   Outputs:
             %       SCvxStar2 object.
             arguments
-                problem (1, 1) ConvexSubproblem
+                problem (1, 1) CVXFastSubproblem
                 opts.wMax (1, 1) double = 1e6;
                 opts.wInit (1, 1) double = 1000;
                 opts.weightIncreaseFactor = 1.25
@@ -89,6 +89,7 @@ classdef SCvxStarFast
                 obj (1, 1) SCvxStarFast
                 zInit (:, 1) double
             end
+            yalmip('clear');
             % Set Current Values for Quantities - Iteration Control:
             zRef = zInit;                   % Current reference opt vars
             currentW = obj.wInit;           % Current penalty weight
@@ -100,7 +101,9 @@ classdef SCvxStarFast
 
             numIter = 0;                    % Number of iterations
 
+            tic;
             pRef = obj.cvxSubproblem.build_params(zRef); % Ref param values
+            toc;
 
             % Get initial g_lin, h_lin to size lagrange multipliers
             glinInit = obj.cvxSubproblem.g_linearized(zRef, pRef);
@@ -110,11 +113,23 @@ classdef SCvxStarFast
 
             % Declare SDP Variables for optimization
             zSDP = obj.cvxSubproblem.build_sdpvar(zRef); % Opt vars
-            pSDP = sdpvar(length(pRef), 1); % Parameter vector
+            pSDP = obj.cvxSubproblem.build_params_sdp(pRef);
+
+
             zRefSDP = sdpvar(length(zRef), 1); % Reference z values (for TR)
             wSDP = sdpvar(1); % Penalty weight as SDPvar
-            lambdaSDP = sdpvar(1); % lambda as sdpvar
-            muSDP = sdpvar(length(currentMu, 1)); % mu as sdpvar
+
+            if (~isempty(currentLambda))
+                lambdaSDP = sdpvar(length(currentLambda), 1); % lambda as sdpvar
+            else
+                lambdaSDP = [];
+            end
+
+            if (~isempty(currentMu))
+                muSDP = sdpvar(length(currentMu), 1); % mu as sdpvar
+            else
+                muSDP = [];
+            end
             trSDP = sdpvar(1); % trust region as sdpvar
             xi = sdpvar(length(currentLambda), 1); % slack sdpvar
             zeta = sdpvar(length(currentMu), 1); % slack sdpvar
@@ -131,16 +146,26 @@ classdef SCvxStarFast
             if ~isempty(gTilde)
                 xi = sdpvar(length(gTilde), 1);
                 constraints = [constraints; gTilde - xi == 0];
+                lambdaSDP = sdpvar(length(xi), 1);
+                t1 = sdpvar(1);
+                constraints = [constraints; 1e4*norm([2*xi; t1-1], 2) <= 1e4*(t1+1); t1>=0];
             else
                 xi = [];
+                lambdaSDP = [];
+                t1 = 0;
             end
 
             if ~isempty(hTilde)
                 zeta = sdpvar(length(hTilde), 1);
                 constraints = [constraints; hTilde - zeta <= 0];
                 constraints = [constraints; zeta >= 0];
+                muSDP = sdpvar(length(zeta), 1);
+                t2 = sdpvar(1);
+                constraints = [constraints; norm([2*zeta; t2-1], 2) <= t2+1; t2>=0];
             else
                 zeta = [];
+                muSDP = [];
+                t2 = 0;
             end
             
             % Append Trust Region Constraints
@@ -148,10 +173,10 @@ classdef SCvxStarFast
 
             % Define the Objective
             L = obj.augmentedLagrangianSDP(zSDP, xi, zeta, wSDP, ...
-                lambdaSDP, muSDP);
+                lambdaSDP, muSDP, t1, t2);
 
             % Solver Settings
-            opts = sdpsettings('solver', 'mosek');
+            opts = sdpsettings('solver', 'mosek', 'verbose', 2);
             opts.mosek.MSK_DPAR_BASIS_TOL_X = 1e-9;
             opts.mosek.MSK_DPAR_BASIS_TOL_S = 1e-9;
             opts.mosek.MSK_DPAR_INTPNT_CO_TOL_DFEAS = 1e-11;
@@ -160,110 +185,100 @@ classdef SCvxStarFast
 
             % Build Optimizer
             cvxSubproblemOpt = optimizer(constraints, L, opts, ...
-                [pSDP; zRefSDP; wSDP; lambdaSDP; muSDP; trSDP], ...
-                [zSDP; xi; zeta]);
+                {[pSDP; zRefSDP; wSDP; lambdaSDP; muSDP; trSDP]}, ...
+                {[zSDP(:); xi(:); zeta(:); t1; t2], L});
 
-            sol = cvxSubproblemOpt([pRef; zRef; currentW; currentLambda; currentMu; currentTR]);
+            while (optMetric > obj.tolOpt || feasMetric > obj.tolFeas) && ...
+                    numIter < obj.maxIter
 
-        %     while (optMetric > obj.tolOpt || feasMetric > obj.tolFeas) && ...
-        %             numIter < obj.maxIter
-        % 
-        %         numIter = numIter + 1;
-        % 
-        % 
-        % 
-        % 
-        % 
-        % 
-        %         % Solve the CVX Subproblem
-        %         L = obj.augmentedLagrangianSDP(zSDP, xi, zeta, currentW, ...
-        %             currentLambda, currentMu);
-        % 
-        % 
-        % 
-        %         sol = optimize(constraints, L, opts);
-        % 
-        %         % Evaluate Nonlinear Constraints - Current Iteration
-        %         gCurrent = obj.cvxSubproblem.g_nonlinear(value(zSDP));
-        %         hCurrent = obj.cvxSubproblem.h_nonlinear(value(zSDP));
-        %         Jcurrent = obj.augmentedLagrangian(value(zSDP), ...
-        %             gCurrent, hCurrent, currentW, currentLambda, ...
-        %             currentMu);
-        % 
-        %         % Evaluate Nonlinear Constraints - Previous Iteration
-        %         gPrev = obj.cvxSubproblem.g_nonlinear(zRef);
-        %         hPrev = obj.cvxSubproblem.h_nonlinear(zRef);
-        %         Jprev = obj.augmentedLagrangian(zRef, gPrev, hPrev, ...
-        %             currentW, currentLambda, currentMu);
-        % 
-        %         % Cost Function Deltas
-        %         deltaJCurrent = Jprev-Jcurrent;
-        %         deltaLCurrent = Jprev-value(L);
-        %         optMetric = abs(deltaJCurrent); % Optimality metric
-        % 
-        %         if (deltaLCurrent < 0)
-        %             warning("This shouldn't be negative...attempt to " + ...
-        %                 "diagnose!");
-        %         end
-        % 
-        %         % Evaluate Feasibility
-        %         feasVector = [gCurrent; max(0, hCurrent)];
-        %         feasMetric = norm(feasVector, inf);
-        % 
-        %         % Evaluate step improvement
-        %         if deltaLCurrent == 0
-        %             currentRho = 1;
-        %         else
-        %             currentRho = deltaJCurrent/deltaLCurrent;
-        %         end
-        % 
-        %         fprintf("Step Results:\n");
-        %         fprintf("Iteration Optimality (deltaJ): %.4g\n", deltaJCurrent);
-        %         fprintf("Iteration Feasibility: %.4g\n", feasMetric);
-        %         fprintf("Iteration deltaL: %.4g\n", deltaLCurrent);
-        %         fprintf("Current Trust Region: %.4g\n", currentTR);
-        %         fprintf("Current rho: %.4g\n", currentRho);
-        %         fprintf("Current w: %.4g\n", currentW);
-        %         fprintf("Current Optimality Criteria to Update (delta): %.4g\n", delta);
-        %         fprintf("YALMIP Time: %.4g\n", sol.yalmiptime)
-        % 
-        %         % Assess Step Improvement - keep results
-        %         if currentRho >= obj.rho0
-        %             zRef = value(zSDP); % Update the reference...good step
-        % 
-        %             % Assess if we should update weights - we have improved
-        %             % optimality enough
-        %             if abs(deltaJCurrent) < delta
-        %                 fprintf("Updated Multipliers!\n");
-        %                 % Update Multipliers
-        %                 currentLambda = currentLambda + currentW*gCurrent;
-        %                 currentMu = max(0, currentMu + currentW*hCurrent);
-        %                 currentW = min(obj.beta*currentW, obj.wMax);
-        % 
-        %                 % Update Stationary Tolerance
-        %                 if isinf(delta)
-        %                     delta = abs(deltaJCurrent);
-        %                 else
-        %                     delta = obj.gamma * delta;
-        %                 end
-        %             end
-        %         end
-        % 
-        %         % Update Trust Region
-        %         if currentRho < obj.rho1
-        %             fprintf("Reduced Trust Region\n");
-        %             currentTR = max(currentTR/obj.alpha1, obj.rMin);
-        %         elseif currentRho > obj.rho2
-        %             fprintf("Expanded Trust Region\n");
-        %             currentTR = min(obj.alpha2*currentTR, obj.rMax);
-        %         end
-        %     end
-        %     zOpt = value(zSDP);
-        % end
+                numIter = numIter + 1;
 
-        zOpt = solveFast(obj, zInit);
+                % Solve the Problem for the Given Parameter Set
+                optResults = cvxSubproblemOpt([pRef(:); zRef(:); currentW(:); currentLambda(:); currentMu(:); currentTR(:)]);
+                zCurrent = optResults{1}(1:length(zInit));
+                currentL = optResults{2};
 
-        function L = augmentedLagrangianSDP(obj, zSDP, xi, zeta, w, lambda, mu)
+                % Evaluate Nonlinear Constraints - Current Iteration
+                gCurrent = obj.cvxSubproblem.g_nonlinear(zCurrent);
+                hCurrent = obj.cvxSubproblem.h_nonlinear(zCurrent);
+                Jcurrent = obj.augmentedLagrangian(zCurrent, ...
+                    gCurrent, hCurrent, currentW, currentLambda, ...
+                    currentMu);
+
+                % Evaluate Nonlinear Constraints - Previous Iteration
+                gPrev = obj.cvxSubproblem.g_nonlinear(zRef);
+                hPrev = obj.cvxSubproblem.h_nonlinear(zRef);
+                Jprev = obj.augmentedLagrangian(zRef, gPrev, hPrev, ...
+                    currentW, currentLambda, currentMu);
+
+                % Cost Function Deltas
+                deltaJCurrent = Jprev-Jcurrent;
+                deltaLCurrent = Jprev-currentL;
+                optMetric = abs(deltaJCurrent); % Optimality metric
+
+                if (deltaLCurrent < 0)
+                    warning("This shouldn't be negative...attempt to " + ...
+                        "diagnose!");
+                end
+
+                % Evaluate Feasibility
+                feasVector = [gCurrent; max(0, hCurrent)];
+                feasMetric = norm(feasVector, inf);
+
+                % Evaluate step improvement
+                if deltaLCurrent == 0
+                    currentRho = 1;
+                else
+                    currentRho = deltaJCurrent/deltaLCurrent;
+                end
+
+                fprintf("Step Results:\n");
+                fprintf("Iteration Optimality (deltaJ): %.4g\n", deltaJCurrent);
+                fprintf("Iteration Feasibility: %.4g\n", feasMetric);
+                fprintf("Iteration deltaL: %.4g\n", deltaLCurrent);
+                fprintf("Current Trust Region: %.4g\n", currentTR);
+                fprintf("Current rho: %.4g\n", currentRho);
+                fprintf("Current w: %.4g\n", currentW);
+                fprintf("Current Optimality Criteria to Update (delta): %.4g\n", delta);
+                fprintf("Constraint Issue: %.4g\n", norm(value(xi))^2-value(t1));
+                % fprintf("YALMIP Time: %.4g\n", sol.yalmiptime)
+
+                % Assess Step Improvement - keep results
+                if currentRho >= obj.rho0
+                    zRef = zCurrent; % Update the reference...good step
+                    pRef = obj.cvxSubproblem.build_params(zRef);
+
+                    % Assess if we should update weights - we have improved
+                    % optimality enough
+                    if abs(deltaJCurrent) < delta
+                        fprintf("Updated Multipliers!\n");
+                        % Update Multipliers
+                        currentLambda = currentLambda + currentW*gCurrent;
+                        currentMu = max(0, currentMu + currentW*hCurrent);
+                        currentW = min(obj.beta*currentW, obj.wMax);
+
+                        % Update Stationary Tolerance
+                        if isinf(delta)
+                            delta = abs(deltaJCurrent);
+                        else
+                            delta = obj.gamma * delta;
+                        end
+                    end
+                end
+
+                % Update Trust Region
+                if currentRho < obj.rho1
+                    fprintf("Reduced Trust Region\n");
+                    currentTR = max(currentTR/obj.alpha1, obj.rMin);
+                elseif currentRho > obj.rho2
+                    fprintf("Expanded Trust Region\n");
+                    currentTR = min(obj.alpha2*currentTR, obj.rMax);
+                end
+            end
+            zOpt = zRef;
+        end
+
+        function L = augmentedLagrangianSDP(obj, zSDP, xi, zeta, w, lambda, mu, t1, t2)
             % AUGMENTEDLAGRANGIANSDP: Augmented lagrangian that for which
             % approximiate solution is obtained at each iteration to result
             % in marching to true optimal of desired problem.  Defined by
@@ -283,8 +298,8 @@ classdef SCvxStarFast
             %   Outputs:    Augmented lagrangian function
             f0 = obj.cvxSubproblem.cost_fcn(zSDP);
 
-            L = f0 + dot(lambda, xi) + w/2 * dot(xi, xi) + dot(mu, zeta) + ...
-                w/2 * dot(zeta, zeta); % dot(zeta, zeta) because we constraint zeta >= 0!
+            L = f0 + dot(lambda, xi) + w/2 * t1 + dot(mu, zeta) + ...
+               w/2 * t2; % dot(zeta, zeta) because we constraint zeta >= 0!
         end
 
         function J = augmentedLagrangian(obj, z, gNL, hNL, w, lambda, mu)

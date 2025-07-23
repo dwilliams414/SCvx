@@ -89,6 +89,8 @@ classdef (Abstract) CVXFastSubproblem
         z_sdp = build_sdpvar(obj, z_ref);
 
         p = build_params(obj, z_ref);
+
+        pSDP = build_params_sdp(obj, p_ref);
     end
 
     methods
